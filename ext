@@ -2,6 +2,7 @@
 #
 #    System Extractor Linux
 #    Copyright (C) 2016-2017 matrixex
+#    Copyright (C) 2020 Kotya Agapkin
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -607,8 +608,7 @@ EXT_START() {
   clear
   echo
   echo
-  cecho W "" "                        Marshmallow/Lollipop             "
-  cecho W "" "                     System extractor & repack           "
+  cecho W "" "                     Rom extractor & repack           "
   cecho G "                           (" "by matrix" ")"
   cecho C "" "                                                     $DATE_STR"
   echo
@@ -622,7 +622,9 @@ EXT_START() {
   echo
   cecho C "    4 - " "Unpack" " system.img"
   echo
-  cecho C "    5 - " "Sign" " ZIP files"
+  cecho C "    5 - " "Unpack" " vendor.img"
+  echo
+  cecho C "    6 - " "Sign" " ZIP files"
    echo
   cecho C "    u - " "Unmount" " output"
   echo
@@ -741,7 +743,117 @@ E_SYS() {
         fi  
 
      }
+     
+E_VEN() {
 
+   unset DATE_STR
+   DATE_STR=`date '+%m-%d-%a_%H-%M-%S'`
+   #For not conflicting with previous extracted files
+   #Based on dxdia's kitchen
+   extract=extract_$DATE_STR
+   mkdir $extract
+   clear
+   echo
+   echo   "::::::::::::::::::::::::::::::::::::::::::::::::::::::"
+   echo   "::                                                  ::"
+   echo -e  "::  Copy " "\033[0;92mvendor.img\033[0m""                                ::"
+   echo   "::                                                  ::"
+   echo -e  "::" " to ""\033[0;97m$extract\033[0m"" folder.           ::"
+   echo   "::                                                  ::"
+   echo   "::::::::::::::::::::::::::::::::::::::::::::::::::::::"
+   echo
+   WAIT ""
+
+   clear
+    if [ ! -f $extract/vendor.img ]
+	  then
+	  echo
+      cecho R " File" " vendor.img " "does not exist!  "
+      echo
+	  cecho P   " in " "$extract " "folder , try again by  "
+	  echo
+	  echo    " placing vendor.img in mentioned folder "
+	  rm -rf $extract
+	  WAIT " "
+	  EXT_MAIN
+     fi
+     cd $extract
+
+       echo
+     echo  " Found vendor.img"
+     echo
+     sleep 0.5
+     echo  " converting vendor.img to vendor.raw.img    "
+     if [ `uname | grep Linux` ]  #IF-1
+       then
+       cp ../tools/UNI/simg2img .
+     ./simg2img vendor.img vendor.raw.img
+     elif [ `uname | grep CYGWIN` ]
+         then
+         cp ../tools/Cygwin/simg2img.exe .
+         ./simg2img.exe vendor.img vendor.raw.img
+     fi
+     echo
+         if [ -f vendor.raw.img ]    #IF-2
+           then
+             rm -f vendor.img
+             rm -f simg2img simg2img.exe
+           echo "  Successfully Converted into vendor.raw.img"
+             sleep 1
+
+               if [ `uname | grep Linux` ]  #IF-1
+                 then
+                 echo
+                 cecho W "" "  Mounting vendor.raw.img to output folder"
+               echo
+               read -p "  Hit Enter to continue to mount"
+               echo
+                    if [ ! -e output ]
+                      then
+                      mkdir output
+                    fi
+                    #IN Ubuntu mount worked but in other OS
+                    #IDK it will or will not work
+                  sudo mount -t ext4 -o loop vendor.raw.img output/
+                  if [ $? == 0 ]
+                       then
+                       echo
+                     echo  "   DONE! Mounted vendor.raw.img in output folder"
+                     echo
+             cd ..
+                     read -p "   ALL DONE HIT ENTER TO CONTINUE TO MENU"
+             EXT_MAIN
+                 else
+                       echo
+                       echo   "    Mount Failed Please try another method!"
+                       echo
+             cd ..
+             WAIT "    "
+             EXT_MAIN
+                    fi
+             elif [ `uname | grep CYGWIN` ]
+                   then
+                   cp ../tools/Cygwin/ImgExtractor.exe .
+               echo
+               cecho W "" "  Converting vendor.raw.img to vendor_ folder"
+               sleep 2
+                   ./ImgExtractor.exe vendor.raw.img -i
+           if [ -e vendor_ ]
+             then
+             rm -f ImgExtractor.exe
+             echo
+             echo  "   Extracted vendor.raw.img to vendor_ folder"
+             echo
+                     read -p "   ALL DONE HIT ENTER TO CONTINUE TO MENU"
+             echo
+             echo
+             cd ..
+             EXT_MAIN
+                   fi
+               fi 
+        fi  
+
+     }
 
 #MENU
 EXT_MAIN() {
@@ -758,7 +870,8 @@ do
 		2) E_DAT ;;      #DONE
 		3)  clear ; echo NOT YET DONE ; exit ;;
 		4) E_SYS ;;
-		5) SIGN_ZIP ;;   #DONE
+		5) E_VEN ;;
+		6) SIGN_ZIP ;;   #DONE
 		u|U) UN_MNT ;;   #DONE
 		X|x) clear; echo; echo "Thanks for using."; echo; exit 1;;
 		*) cecho R "" "     Invalid option"; sleep 0.3; continue;;
